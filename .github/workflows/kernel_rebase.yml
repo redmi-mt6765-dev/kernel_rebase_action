@@ -1,0 +1,19 @@
+name: Kernel Rebase
+
+on:
+  workflow_dispatch:
+
+jobs:
+  kernel-rebase:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: /home/runner
+
+    steps:
+      - name: Clone script 📜
+        run: curl -O https://raw.githubusercontent.com/redmi-mt6765-dev/kernel_rebase_action/refs/heads/main/kernel_rebase.sh
+
+      - name: Run script 🚀
+        run: ./kernel-rebase.sh "https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git -b dandelion-q-oss" "deprecated/android-4.9-q"
