@@ -19,7 +19,7 @@ This repository aims to rebase OEM kernel source to ACK according to OEM's kerne
 
 ---
 
-## 📃 License:
+### 📃 License:
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
