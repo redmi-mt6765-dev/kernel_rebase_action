@@ -102,7 +102,7 @@ reset_ack_to_oem_version() {
     printf "Searching for ACK merge commit for kernel version '%s'...\n" "${oem_version}"
 
     local commit_sha
-    commit_sha=$(git -C "${ack_dir}" log --merges --oneline "${ack_dir}" -- Makefile | grep -i "${oem_version}" | cut -d' ' -f1)
+    commit_sha=$(git -C "${ack_dir}" log --oneline "${ack_branch}" Makefile | grep -i "${oem_version}" | grep -i "merge" | cut -d ' ' -f1)
 
     # Check if we found a unique commit
     if [ -z "${commit_sha}" ]; then
