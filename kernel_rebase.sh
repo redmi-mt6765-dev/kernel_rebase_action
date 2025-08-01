@@ -59,13 +59,22 @@ usage() {
 #   $2: Branch name.
 #   $3: Destination directory.
 #
-clone_repo() {
+clone_repo_oem() {
     local repo_url="${1}"
     local branch="${2}"
     local dest_dir="${3}"
 
     printf "Cloning branch '%s' from '%s'...\n" "${branch}" "${repo_url}"
     git clone --depth=1 --single-branch --branch "${branch}" "${repo_url}" "${dest_dir}"
+}
+
+clone_repo_ack() {
+    local repo_url="${1}"
+    local branch="${2}"
+    local dest_dir="${3}"
+
+    printf "Cloning branch '%s' from '%s'...\n" "${branch}" "${repo_url}"
+    git clone --single-branch --branch "${branch}" "${repo_url}" "${dest_dir}"
 }
 
 # Get the kernel version from a source directory.
@@ -168,8 +177,8 @@ main() {
     rm -rf "${oem_dir}" "${ack_dir}"
 
     # 1. Clone repositories
-    clone_repo "${oem_kernel_url}" "${oem_branch}" "${oem_dir}"
-    clone_repo "${ACK_REPO_URL}" "${ack_branch}" "${ack_dir}"
+    clone_repo_oem "${oem_kernel_url}" "${oem_branch}" "${oem_dir}"
+    clone_repo_ack "${ACK_REPO_URL}" "${ack_branch}" "${ack_dir}"
 
     # 2. Get OEM kernel version
     local oem_kernel_version
