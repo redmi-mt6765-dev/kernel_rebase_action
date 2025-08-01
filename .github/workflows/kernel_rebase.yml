@@ -19,7 +19,7 @@ jobs:
         run: |
           git config --global user.email "diwasneupane652@gmail.com"
           git config --global user.name "Diwas Neupane"
-          bash kernel_rebase.sh "https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git -b dandelion-q-oss" "deprecated/android-4.9-q"
+          bash kernel_rebase.sh "https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git" "dandelion-q-oss" "deprecated/android-4.9-q"
           ls -la
           pwd
           cd kernel
