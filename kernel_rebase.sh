@@ -1,90 +1,190 @@
 #!/usr/bin/env bash
 
-# Color codes for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NORMAL='\033[0m'
+#
+# Author: <techdiwas> Diwas Neupane
+#
+# This script rebases a custom OEM kernel source onto a specified
+# branch of the Android Common Kernel (ACK).
+#
 
-# Get script directory
-PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# --- Configuration and Setup ---
 
-# URLs and Arguments
-ACK_REPO="https://android.googlesource.com/kernel/common.git"
-OEM_KERNEL_URL="$1"
-ACK_BRANCH="$2"
+# Exit immediately if a command exits with a non-zero status.
+# Treat unset variables as an error.
+# The return value of a pipeline is the status of the last command to exit
+# with a non-zero status.
+set -euo pipefail
 
-# Show usage information
-usage() {
-    echo -e "${0} \"OEM kernel git URL\" \"ACK branch\"\nExample: ${0} \"https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git -b dandelion-q-oss\" \"android-4.9-q\""
-}
+# --- Constants ---
 
-# Abort on error
+# Use tput for terminal capabilities for better portability
+if tput setaf 1 > /dev/null 2>&1; then
+    readonly RED=$(tput setaf 1)
+    readonly GREEN=$(tput setaf 2)
+    readonly NORMAL=$(tput sgr0)
+else
+    readonly RED='\033[0;31m'
+    readonly GREEN='\033[0;32m'
+    readonly NORMAL='\033[0m'
+fi
+
+readonly SCRIPT_NAME="$(basename "${0}")"
+readonly PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+readonly ACK_REPO_URL="https://android.googlesource.com/kernel/common.git"
+
+# --- Functions ---
+
+# Print an error message and exit.
+#
+# Arguments:
+#   $1: The error message to print.
+#
 abort() {
-    [[ -n "$1" ]] && echo -e "${RED}$1${NORMAL}"
+    printf "${RED}Error: %s${NORMAL}\n" "${1}" >&2
     exit 1
 }
 
-# Check argument count
-if [[ $# -ne 2 ]]; then
-    usage
-    abort "Error: Missing arguments."
-fi
+# Print the script's usage instructions.
+#
+usage() {
+    printf "Usage: %s \"<oem-kernel-git-url>\" \"<oem-branch>\" \"<ack-branch>\"\n" "${SCRIPT_NAME}"
+    printf "Example:\n"
+    printf "  %s \"https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git\" \"dandelion-q-oss\" \"android-4.9-q\"\n" "${SCRIPT_NAME}"
+}
 
-# Clone OEM kernel repository
-if ! git clone --depth=1 --single-branch ${OEM_KERNEL_URL} oem; then
-    abort "Failed to clone OEM kernel repository."
-fi
+# Clone a git repository with a specific branch and depth.
+#
+# Arguments:
+#   $1: Repository URL.
+#   $2: Branch name.
+#   $3: Destination directory.
+#
+clone_repo() {
+    local repo_url="${1}"
+    local branch="${2}"
+    local dest_dir="${3}"
 
-# Clone ACK repository
-if ! git clone --single-branch -b "${ACK_BRANCH}" "${ACK_REPO}" kernel; then
-    abort "Failed to clone ACK repository."
-fi
+    printf "Cloning branch '%s' from '%s'...\n" "${branch}" "${repo_url}"
+    git clone --depth=1 --single-branch --branch "${branch}" "${repo_url}" "${dest_dir}"
+}
 
-# Extract OEM kernel version
-pushd oem > /dev/null || abort "Cannot enter 'oem' directory."
-OEM_KERNEL_VERSION=$(make kernelversion 2>/dev/null)
-popd > /dev/null
+# Get the kernel version from a source directory.
+#
+# Arguments:
+#   $1: Path to the kernel source directory.
+#
+get_kernel_version() {
+    local kernel_src_dir="${1}"
+    (cd "${kernel_src_dir}" && make kernelversion) || abort "Failed to determine kernel version in '${kernel_src_dir}'."
+}
 
-if [[ -z "${OEM_KERNEL_VERSION}" ]]; then
-    abort "Could not detect OEM kernel version."
-fi
+# Find the corresponding ACK commit for the OEM kernel version and reset to it.
+#
+# Arguments:
+#   $1: Path to the ACK kernel directory.
+#   $2: The OEM kernel version string (e.g., "4.9.204").
+#   $3: The ACK branch to search within.
+#
+reset_ack_to_oem_version() {
+    local ack_dir="${1}"
+    local oem_version="${2}"
+    local ack_branch="${3}"
+    
+    printf "Searching for ACK merge commit for kernel version '%s'...\n" "${oem_version}"
 
-# Find short SHA for kernel version in ACK history
-pushd kernel > /dev/null || abort "Cannot enter 'kernel' directory."
-OEM_KERNEL_VER_SHORT_SHA=$(git log --oneline "${ACK_BRANCH}" Makefile | grep -i "${OEM_KERNEL_VERSION}" | grep -i merge | awk '{print $1}' | head -n 1)
-if [[ -z "${OEM_KERNEL_VER_SHORT_SHA}" ]]; then
-    popd > /dev/null
-    abort "Could not find ACK commit matching OEM kernel version."
-fi
-git reset --hard "${OEM_KERNEL_VER_SHORT_SHA}"
-popd > /dev/null
+    local commit_sha
+    commit_sha=$(git -C "${ack_dir}" log --oneline "${ack_branch}" Makefile | grep -i "${oem_version}" | grep -i "merge" | cut -d ' ' -f1)
 
-# Get OEM kernel top-level directories (excluding .git)
-pushd oem > /dev/null
-OEM_DIR_LIST=$(find . -mindepth 1 -maxdepth 1 -type d ! -name ".git" -printf "%P\n")
-popd > /dev/null
+    # Check if we found a unique commit
+    if [ -z "${commit_sha}" ]; then
+        abort "Could not find a corresponding merge commit for version '${oem_version}' in the ACK '${ack_branch}' branch."
+    fi
+    if [ "$(echo "${commit_sha}" | wc -l)" -ne 1 ]; then
+        abort "Found multiple possible merge commits for version '${oem_version}'. Aborting for safety."
+    fi
+    
+    printf "Found base commit: %s. Resetting ACK repository...\n" "${commit_sha}"
+    git -C "${ack_dir}" reset --hard "${commit_sha}"
+}
 
-# Remove corresponding directories from ACK
-pushd kernel > /dev/null
-for dir in ${OEM_DIR_LIST}; do
-    rm -rf "${dir}"
-done
-popd > /dev/null
+# Copy OEM source files and create commits in the ACK repository.
+#
+# Arguments:
+#   $1: Path to the OEM kernel source.
+#   $2: Path to the ACK kernel source.
+#
+rebase_oem_on_ack() {
+    local oem_dir="${1}"
+    local ack_dir="${2}"
+    
+    printf "Replacing ACK directories with OEM source...\n"
+    
+    # Get a list of top-level directories in the OEM source, excluding .git
+    local oem_dirs
+    oem_dirs=$(find "${oem_dir}" -maxdepth 1 -type d -printf "%P\n" | grep -v '^\.git$' | grep -v '^$')
 
-# Copy OEM kernel files to ACK
-rsync -a --exclude='.git' oem/ kernel/
+    for dir in ${oem_dirs}; do
+        if [ -d "${ack_dir}/${dir}" ]; then
+            rm -rf "${ack_dir}/${dir}"
+        fi
+    done
+    
+    printf "Copying all OEM files to ACK directory...\n"
+    # Use rsync for efficient copying
+    rsync -a --exclude='.git/' "${oem_dir}/" "${ack_dir}/"
 
-# Commit imported directories
-pushd kernel > /dev/null
-for dir in ${OEM_DIR_LIST}; do
-    git add "${dir}"
-    git commit -s -m "${dir}: Import OEM Changes"
-done
+    printf "Committing OEM changes...\n"
+    for dir in ${oem_dirs}; do
+        if [ -d "${ack_dir}/${dir}" ]; then
+            git -C "${ack_dir}" add "${dir}"
+            git -C "${ack_dir}" commit --quiet -s -m "${dir}: Import from OEM source"
+        fi
+    done
 
-# Commit any remaining changes
-git add .
-git commit -s -m "Import Remaining OEM Changes"
-popd > /dev/null
+    # Create a final commit for any remaining untracked files/changes
+    git -C "${ack_dir}" add .
+    if ! git -C "${ack_dir}" diff-index --quiet HEAD; then
+        git -C "${ack_dir}" commit --quiet -s -m "Import remaining OEM changes"
+    fi
+}
 
-echo -e "${GREEN}Your kernel has been successfully rebased to ACK. Please check the 'kernel/' directory.${NORMAL}"
-exit 0
+# --- Main Logic ---
+
+main() {
+    # Check for required arguments
+    if [ "$#" -ne 3 ]; then
+        usage
+        abort "Invalid number of arguments."
+    fi
+
+    local oem_kernel_url="${1}"
+    local oem_branch="${2}"
+    local ack_branch="${3}"
+
+    local oem_dir="${PROJECT_DIR}/oem"
+    local ack_dir="${PROJECT_DIR}/kernel"
+    
+    # Clean up previous runs
+    rm -rf "${oem_dir}" "${ack_dir}"
+
+    # 1. Clone repositories
+    clone_repo "${oem_kernel_url}" "${oem_branch}" "${oem_dir}"
+    clone_repo "${ACK_REPO_URL}" "${ack_branch}" "${ack_dir}"
+
+    # 2. Get OEM kernel version
+    local oem_kernel_version
+    oem_kernel_version=$(get_kernel_version "${oem_dir}")
+    printf "OEM Kernel Version: %s\n" "${oem_kernel_version}"
+
+    # 3. Reset ACK to the identified base commit
+    reset_ack_to_oem_version "${ack_dir}" "${oem_kernel_version}" "${ack_branch}"
+
+    # 4. Rebase OEM changes onto ACK
+    rebase_oem_on_ack "${oem_dir}" "${ack_dir}"
+
+    printf "\n${GREEN}Success! Your kernel has been rebased to ACK.${NORMAL}\n"
+    printf "The rebased kernel is located in: %s\n" "${ack_dir}"
+}
+
+# Run the main function with all script arguments
+main "$@"
