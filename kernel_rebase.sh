@@ -130,7 +130,7 @@ rebase_oem_on_ack() {
     
     # Get a list of top-level directories in the OEM source, excluding .git
     local oem_dirs
-    oem_dirs=$(find "${oem_dir}" -maxdepth 1 -type d -printf "%P\n" | grep -v '^\.git$' | grep -v '^$')
+    oem_dirs=$(find . -mindepth 1 -maxdepth 1 -type d ! -name ".git" -printf "%P\n")
 
     for dir in ${oem_dirs}; do
         if [ -d "${ack_dir}/${dir}" ]; then
