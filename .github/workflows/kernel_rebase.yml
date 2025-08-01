@@ -26,6 +26,7 @@ jobs:
 
       - name: Import SSH (openssh) key 🚚
         run: |
+          cd ~
           git clone https://"$GH_PAT"@github.com/techdiwas/ssh-and-gpg-keys.git $HOME/tmp
           mkdir -p $HOME/.ssh
           if [ -f $HOME/tmp/id_rsa ] && [ -f $HOME/tmp/id_rsa.pub ]; then
@@ -52,7 +53,11 @@ jobs:
           GH_PAT: ${{ secrets.GH_PAT }}
 
       - name: Clone script 📜
-        run: curl -L -O https://raw.githubusercontent.com/redmi-mt6765-dev/kernel_rebase_action/refs/heads/main/kernel_rebase.sh
+        run: |
+          cd ~
+          curl -L -O https://raw.githubusercontent.com/redmi-mt6765-dev/kernel_rebase_action/refs/heads/main/kernel_rebase.sh
 
       - name: Run script 🚀
-        run: bash kernel_rebase.sh "https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git" "dandelion-q-oss" "deprecated/android-4.9-q"
+        run: |
+          cd ~
+          bash kernel_rebase.sh "https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git" "dandelion-q-oss" "deprecated/android-4.9-q"
