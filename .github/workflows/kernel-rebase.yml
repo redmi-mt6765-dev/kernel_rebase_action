@@ -61,7 +61,7 @@ jobs:
           cd ~
           git clone https://"$GH_PAT"@github.com/techdiwas/ssh-and-gpg-keys.git $HOME/temp
           if [ -f $HOME/temp/id_gpg_public ] && [ -f $HOME/temp/id_gpg_private ] && [ -f $HOME/temp/gpg_ownertrust ]; then
-              mv $HOME/temp/id_gpg_public $HOME/temp/id_gpg_private $HOME/temp/id_gpg_ownertrust $HOME
+              mv $HOME/temp/id_gpg_public $HOME/temp/id_gpg_private $HOME/temp/gpg_ownertrust $HOME
               gpg --import ~/id_gpg_public
               gpg --import ~/id_gpg_private
               gpg --import ~/gpg_ownertrust
