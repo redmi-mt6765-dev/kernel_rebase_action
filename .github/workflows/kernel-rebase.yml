@@ -3,8 +3,8 @@ name: Kernel Rebase
 on:
   workflow_dispatch:
     inputs:
-      repourl:
-        description: "Target Repository"
+      reponame:
+        description: "Target Repository Name"
         required: true
         type: string
       ghorg:
@@ -84,7 +84,7 @@ jobs:
           git branch
           git remote -v
           git remote remove origin
-          git remote add origin https://x-access-token:${GH_PAT}@github.com/"${{ inputs.ghorg }}"/"${{ inputs.repourl }}"
+          git remote add origin https://x-access-token:${GH_PAT}@github.com/"${{ inputs.ghorg }}"/"${{ inputs.reponame }}".git
           git remote -v
           git push -u origin "${{ inputs.repobranch }}"
         env:
