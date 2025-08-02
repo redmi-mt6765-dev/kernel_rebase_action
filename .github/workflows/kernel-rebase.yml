@@ -31,16 +31,16 @@ jobs:
       - name: Import SSH (openssh) key 🚚
         run: |
           cd ~
-          git clone https://"$GH_PAT"@github.com/techdiwas/ssh-and-gpg-keys.git $HOME/tmp
+          git clone https://"$GH_PAT"@github.com/techdiwas/ssh-and-gpg-keys.git $HOME/temp
           mkdir -p $HOME/.ssh
-          if [ -f $HOME/tmp/id_rsa ] && [ -f $HOME/tmp/id_rsa.pub ]; then
-              mv $HOME/tmp/id_rsa $HOME/mv/id_rsa.pub $HOME/.ssh
+          if [ -f $HOME/temp/id_rsa ] && [ -f $HOME/temp/id_rsa.pub ]; then
+              mv $HOME/temp/id_rsa $HOME/mv/id_rsa.pub $HOME/.ssh
               chmod 600 ~/.ssh/id_rsa
               echo "-- SSH key restored."
               eval "$(ssh-agent -s)"
               ssh-add ~/.ssh/id_rsa
-          elif [ -f $HOME/tmp/id_ed25519 ] && [ -f $HOME/tmp/id_ed25519.pub ]; then
-              mv $HOME/tmp/id_ed25519 $HOME/tmp/id_ed25519.pub $HOME/.ssh
+          elif [ -f $HOME/temp/id_ed25519 ] && [ -f $HOME/temp/id_ed25519.pub ]; then
+              mv $HOME/temp/id_ed25519 $HOME/temp/id_ed25519.pub $HOME/.ssh
               chmod 600 ~/.ssh/id_ed25519
               echo "-- SSH key restored."
               eval "$(ssh-agent -s)"
@@ -48,7 +48,7 @@ jobs:
           else
               echo "-- No SSH key backup found."
           fi
-          rm -rf $HOME/tmp
+          rm -rf $HOME/temp
           git config --global user.email "$USER_EMAIL"
           git config --global user.name "$USERNAME"
         env:
@@ -57,13 +57,26 @@ jobs:
           GH_PAT: ${{ secrets.GH_PAT }}
 
       - name: Import GPG (GnuPG) key 🚚
-        uses: crazy-max/ghaction-import-gpg@v6.3.0
-        with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-          trust_level: 5
+        run: |
+          cd ~
+          git clone https://"$GH_PAT"@github.com/techdiwas/ssh-and-gpg-keys.git $HOME/temp
+          if [ -f $HOME/temp/id_gpg_public ] && [ -f $HOME/temp/id_gpg_private ] && [ -f $HOME/temp/gpg_ownertrust ]; then
+              mv $HOME/temp/id_gpg_public $HOME/temp/id_gpg_private $HOME/temp/id_gpg_ownertrust $HOME
+              gpg --import ~/id_gpg_public
+              gpg --import ~/id_gpg_private
+              gpg --import ~/gpg_ownertrust
+          else
+              echo "-- No files exists in $HOME/temp to restore."
+              exit 1;
+          fi
+          gpg_key_id=$(gpg --list-secret-keys --keyid-format=long | awk '/sec/{print $2}' | cut -d'/' -f2 | head -n1)
+          # configure git for signing key
+          git config --global commit.gpgsign true;
+          git config --global user.signingkey $gpg_key_id;
+          echo "-- Restored.";
+          rm -rf $HOME/temp
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
 
       - name: Clone script 📜
         run: |
