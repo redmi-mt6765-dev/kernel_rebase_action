@@ -59,24 +59,41 @@ jobs:
       - name: Import GPG (GnuPG) key 🚚
         run: |
           cd ~
-          git clone https://"$GH_PAT"@github.com/techdiwas/ssh-and-gpg-keys.git $HOME/temp
-          if [ -f $HOME/temp/id_gpg_public ] && [ -f $HOME/temp/id_gpg_private ] && [ -f $HOME/temp/gpg_ownertrust ]; then
-              mv $HOME/temp/id_gpg_public $HOME/temp/id_gpg_private $HOME/temp/gpg_ownertrust $HOME
-              gpg --import ~/id_gpg_public
-              gpg --import ~/id_gpg_private
-              gpg --import ~/gpg_ownertrust
+          git clone https://"$GH_PAT"@github.com/techdiwas/ssh-and-gpg-keys.git "$HOME/temp"
+
+          if [[ -f $HOME/temp/id_gpg_public && -f $HOME/temp/id_gpg_private && -f $HOME/temp/gpg_ownertrust ]]; then
+               mv "$HOME/temp/id_gpg_public" "$HOME/temp/id_gpg_private" "$HOME/temp/gpg_ownertrust" "$HOME"
+
+               export GPG_TTY=$(tty || echo "not_a_tty")
+               export GPG_AGENT_INFO=""
+               mkdir -p ~/.gnupg
+               chmod 700 ~/.gnupg
+               echo "use-agent" >> ~/.gnupg/gpg.conf
+               echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+
+               # Import keys
+               gpg --batch --yes --import ~/id_gpg_public
+               gpg --batch --yes --import ~/id_gpg_private
+               gpg --batch --yes --import-ownertrust ~/gpg_ownertrust
+
+               # Cache passphrase for agent
+               gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+               --sign <<< "Unlocking GPG key for signing"
           else
-              echo "-- No files exists in $HOME/temp to restore."
-              exit 1;
+             echo "-- No files exist in $HOME/temp to restore."
+             exit 1
           fi
+
           gpg_key_id=$(gpg --list-secret-keys --keyid-format=long | awk '/sec/{print $2}' | cut -d'/' -f2 | head -n1)
-          # configure git for signing key
-          git config --global commit.gpgsign true;
-          git config --global user.signingkey $gpg_key_id;
-          echo "-- Restored.";
-          rm -rf $HOME/temp
+
+          git config --global commit.gpgsign true
+          git config --global user.signingkey "$gpg_key_id"
+
+          echo "-- Restored and unlocked for signing."
+          rm -rf "$HOME/temp"
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Clone script 📜
         run: |
