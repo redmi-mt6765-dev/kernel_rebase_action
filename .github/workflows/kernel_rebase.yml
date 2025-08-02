@@ -2,6 +2,15 @@ name: Kernel Rebase
 
 on:
   workflow_dispatch:
+    inputs:
+      repourl:
+        description: "Target Repository"
+        required: true
+        type: string
+      ghorg:
+        description: "Target Organization"
+        required: true
+        type: string
 
 jobs:
   kernel-rebase:
@@ -61,3 +70,18 @@ jobs:
         run: |
           cd ~
           bash kernel_rebase.sh "https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git" "dandelion-q-oss" "deprecated/android-4.9-q"
+
+      - name: Push kernel sources 📦
+        run: |
+          cd ~
+          cd kernel
+          git branch
+          git checkout -b android-4.9-q
+          git branch
+          git remote -v
+          git remote remove origin
+          git remote add origin https://x-access-token:${GH_PAT}@github.com/"{{ inputs.ghorg }}"/"${{ inputs.repourl }}"
+          git remote -v
+          git push -u origin android-4.9-q
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
