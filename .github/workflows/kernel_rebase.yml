@@ -11,6 +11,10 @@ on:
         description: "Target Organization"
         required: true
         type: string
+      repobranch:
+        description: "Target Repo Branch"
+        required: true
+        type: string
 
 jobs:
   kernel-rebase:
@@ -76,12 +80,12 @@ jobs:
           cd ~
           cd kernel
           git branch
-          git checkout -b android-4.9-q
+          git checkout -b "${{ inputs.repobranch }}"
           git branch
           git remote -v
           git remote remove origin
           git remote add origin https://x-access-token:${GH_PAT}@github.com/"{{ inputs.ghorg }}"/"${{ inputs.repourl }}"
           git remote -v
-          git push -u origin android-4.9-q
+          git push -u origin "${{ inputs.repobranch }}"
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
