@@ -98,14 +98,14 @@ rebase_oem_on_ack() {
     for item in ${oem_items}; do
         git -C "${ack_dir}" add "${item}"
         if ! git -C "${ack_dir}" diff --cached --quiet; then
-            git -C "${ack_dir}" commit --quiet -s -m "${item}: Import from OEM source"
+            git -C "${ack_dir}" commit -S --quiet -s -m "${item}: Import from OEM source"
         fi
     done
 
     # Final commit for any remaining changes
     git -C "${ack_dir}" add .
     if ! git -C "${ack_dir}" diff-index --quiet HEAD; then
-        git -C "${ack_dir}" commit --quiet -s -m "Import remaining OEM changes"
+        git -C "${ack_dir}" commit -S --quiet -s -m "Import remaining OEM changes"
     fi
 }
 
